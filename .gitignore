@@ -1,0 +1,16 @@
+results/*
+backup/*
+#resutls files
+*.pvd
+*vtu
+#linux cache files
+*.pyc
+#windows python3 
+__pycache__/*
+#mesh files
+salome_mesh/*
+gmsh_mesh_v4/*
+test/*
+gmsh_related/*
+
+
