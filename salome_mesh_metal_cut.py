@@ -12,12 +12,14 @@ theStudy = salome.myStudy
 
 import salome_notebook
 notebook = salome_notebook.NoteBook(theStudy)
-#sys.path.insert( 0, r'/home/qingfeng/Documents')
 
+# to find parameter_salome in the current folder
 try:
-    os.chdir('/media/sf_OneDrive/Fenics/metal_cut')  # change to working dir
+    os.chdir('/media/sf_OneDrive/gitrepo/quasi_static_metal_cut')  # change to working dir
 except:
-    os.chdir('/media/sf_Google_Drive/OneDrive/Fenics/metal_cut/')
+    print('First of all, os.chdir to the folder where salome_parameter.py is located')
+    sys.exit()
+    #os.chdir('/media/OneDrive/Fenics/metal_cut/')
 from math import sin, cos, tan, pi
 
 from parameter_salome import *  # restart salome if any change in this parameter file
@@ -237,20 +239,31 @@ split_tool_ += [Line_pressing_polyline]
 Line_friction_polyline = geompy.MakePolyline([p_ccc, p_friction_top, p_friction_bottom, p_chip_shear_end_o])
 geompy.addToStudy(Line_friction_polyline, 'Line_friction_polyline')
 
-holder_top_y = holder_H
-p_holder_H = geompy.MakeVertex(holder_H*math.tan(holder_angle_v*math.pi/180), holder_H, 0)
-p_holder_W = geompy.MakeVertex(holder_W, holder_W*math.tan(cutter_angle_h*math.pi/180), 0)
-p_holder_HW = geompy.MakeVertex(holder_W, holder_H, 0)
-
-
 Line_cutter_bottom = geompy.MakeLineTwoPnt(p_cutter_bottom, p_cutter_W)
 Line_cutter_HW = geompy.MakeLineTwoPnt(p_cutter_H, p_cutter_W)
 geompy.addToStudy( Line_cutter_left, 'Line_cutter_left')
 geompy.addToStudy( Line_cutter_HW, 'Line_cutter_HW')
 #geompy.addToStudy( , '')
 
+if using_3D_holder:
+    holder_z = 0 # cutter_thickness
+else:
+    holder_z = 0
+holder_top_y = holder_H
+p_holder_H = geompy.MakeVertex(holder_H*math.tan(holder_angle_v*math.pi/180), holder_H, holder_z)
+p_holder_W = geompy.MakeVertex(holder_W, holder_W*math.tan(cutter_angle_h*math.pi/180), holder_z)
+p_holder_HW = geompy.MakeVertex(holder_W, holder_H, holder_z)
+p_holder_bottom = geompy.MakeVertex(holder_bottom_x, holder_bottom_y, holder_z)
+
 Line_holder_top = geompy.MakeLineTwoPnt(p_holder_H, p_holder_HW)
 Line_holder_right = geompy.MakeLineTwoPnt(p_holder_W, p_holder_HW)
+Line_cutter_holder_left = geompy.MakeLineTwoPnt(p_holder_bottom, p_cutter_H)
+Line_cutter_holder_bottom = geompy.MakeLineTwoPnt(p_holder_bottom, p_cutter_W)
+"""
+if using_3D_holder:
+    Line_holder_bottom = geompy.MakeLineTwoPnt(p_holder_W, p_holder_bottom)
+    Line_holder_left = geompy.MakeLineTwoPnt(p_holder_H, p_holder_bottom)
+"""
 Line_holder_bottom = geompy.MakeLineTwoPnt(p_holder_W, p_cutter_W)
 Line_holder_left = geompy.MakeLineTwoPnt(p_holder_H, p_cutter_H)
 
@@ -295,12 +308,29 @@ geompy.addToStudy( Line_chip_left, 'Line_chip_left')
 geompy.addToStudy( Line_friction_polyline, 'Line_friction_polyline')
 ##################################
 
-Face_1 = geompy.MakeFaceWires( cutter_work_joint_outline + work_outline + chip_outline
-    + [Line_cutter_left, Line_holder_left, Line_holder_top, Line_holder_right,  Line_holder_bottom, Line_cutter_bottom], 1)  #
+if using_3D_holder:
 
-geompy.addToStudy( Face_1, 'Face_1' )
-split_tool = split_tool_ + [Line_cutter_HW, Line_chip_friction_interface, Line_friction_polyline]
-Partition_1 = geompy.MakePartition([Face_1], split_tool, [], [], geompy.ShapeType["FACE"], 0, [], 0)
+    Face_1 = geompy.MakeFaceWires( cutter_work_joint_outline + work_outline + chip_outline
+        + [Line_cutter_left, Line_cutter_HW, Line_cutter_bottom], 1)  #
+
+    geompy.addToStudy( Face_1, 'Face_1' )
+    split_tool = split_tool_ + [Line_chip_friction_interface, Line_friction_polyline]
+    split_tool += [Line_cutter_holder_left, Line_cutter_holder_bottom]
+    Partition_1 = geompy.MakePartition([Face_1], split_tool, [], [], geompy.ShapeType["FACE"], 0, [], 0)
+
+    #make holder face, not shared with cutter
+    Face_holder = geompy.MakeFaceWires([Line_holder_left, Line_holder_top, Line_holder_right,  Line_holder_bottom, Line_cutter_HW], 1)
+    geompy.addToStudy( Face_holder, 'Face_holder' )
+
+else:
+    Face_1 = geompy.MakeFaceWires( cutter_work_joint_outline + work_outline + chip_outline
+        + [Line_cutter_left, Line_holder_left, Line_holder_top, Line_holder_right,  Line_holder_bottom, Line_cutter_bottom], 1)  #
+
+    geompy.addToStudy( Face_1, 'Face_1' )
+    split_tool = split_tool_ + [Line_cutter_HW, Line_chip_friction_interface, Line_friction_polyline]
+    Partition_1 = geompy.MakePartition([Face_1], split_tool, [], [], geompy.ShapeType["FACE"], 0, [], 0)
+
+
 if using_fillet_shear_zone:  #for some bug, need to split again!
     Partition_1 = geompy.MakePartition([Partition_1], split_tool, [], [], geompy.ShapeType["FACE"], 0, [], 0)
 geompy.addToStudy( Partition_1, 'Partition_1' )
@@ -375,6 +405,20 @@ if using_3D:
     ###################################
     Extrusion_1 = geompy.MakePrismVecH(Partition_1, OZ, extrusion_thickness)
     geompy.addToStudy( Extrusion_1, 'Extrusion_1' )
+    body_list = [Extrusion_1]
+    if using_3D_holder:
+        cond_faces_holder = lambda p: (p[1] > cutter_H*0.3 and p[0] > cutter_W*0.3 and math.fabs(p[2]) < 1e-5)
+        Face_holder_cutter = get_shape_list_by_center_condition(Extrusion_1, cond_faces_holder, "FACE")
+        faces_holder = [Face_holder] + Face_holder_cutter
+        if len(faces_holder) < 2:
+            print('cutter and holder overlapping face is not identified, exit')
+            sys.exit(-1)
+        #faces_holder_merged = geompy.MakeFuseList(faces_holder, True, True)  # holder and cutter are not connected
+        faces_holder_merged = geompy.MakePartition(faces_holder, [], [], [], geompy.ShapeType["FACE"], 0, [], 0)
+        # two holder zones are not connected
+        Extrusion_holder = geompy.MakePrismVecH(faces_holder_merged, OZ_minus, holder_thickness)
+        geompy.addToStudy( Extrusion_holder, 'Extrusion_holder')
+        body_list.append(Extrusion_holder)
     if using_workpiece_extra_extusion:
         #print('type of Extrusion_1', type(Extrusion_1)) #GEOM_Object compound
         #faces_workpiece = []
@@ -388,8 +432,10 @@ if using_3D:
         geompy.addToStudy( Extrusion_2, 'Extrusion_2' )
         #Fuse_1 = geompy.MakeFuseList([Extrusion_3, Extrusion_2], True, True)
         #geompy.addToStudy( Fuse_1, 'Fuse_1' )
-        #Compound_1 = geompy.MakeCompound([Extrusion_1, Fuse_1])
-        Compound_1 = geompy.MakeCompound([Extrusion_1, Extrusion_2])
+        body_list.append(Extrusion_2)
+    if len(body_list) > 1:
+        Compound_1 = geompy.MakePartition(body_list, Face_holder_cutter, [], [], geompy.ShapeType["SOLID"], 0, [], 0)
+        #Compound_1 = geompy.MakeCompound(body_list)  # MakeCompound: not connnected
     else:
         Compound_1 = Extrusion_1
     geompy.addToStudy(Compound_1, 'Compound_1')
@@ -410,6 +456,7 @@ shear_heat_zones = []
 work_zones = []
 cutter_zones = []
 chip_zones = []
+holder_zones = []
 cutter_chip_transition_zones = []
 _debug = False
 
@@ -430,7 +477,7 @@ for i,v in enumerate(vlist):
     _angle = math.atan2(coords[1], coords[0])
     if _debug: print("Volume of solid_{} is:".format(i), _solid_volume)
 
-    if volume_near(_solid_volume, friction_heat_volume) and _angle > _angle_cutter and math.fabs(_angle - _angle_cutter) < 0.2:
+    if volume_near(_solid_volume, friction_heat_volume) and _angle > _angle_cutter and math.fabs(_angle - _angle_cutter) < 0.5:
         Solid_friction = v
         print("identified as Solid_friction")
     elif using_workpiece_extra_extusion and using_3D and coords[2] < 0:
@@ -468,10 +515,14 @@ for i,v in enumerate(vlist):
             work_zones.append(v)
             print("identified as Solid_work")
         elif ( _angle < _angle_cutter) and coords[1] < cutter_H*0.6:
-            cutter_zones.append(v)
-            print("identified as Solid_cutter")
-        elif coords[1] > cutter_H * 0.6:
-            Solid_holder = v
+            if coords[2] > 0:
+                cutter_zones.append(v)
+                print("identified as Solid_cutter")
+            else:
+                holder_zones.append(v)
+                print("identified as Solid_holder overlapping with cutter")
+        elif coords[1] > cutter_H * 0.6:  # is that works for 
+            holder_zones.append(v)
             print("identified as Solid_holder")
         else:
             print("Volume of solid_{} is:".format(i), _solid_volume)
@@ -484,6 +535,8 @@ Solid_shear = geompy.CreateGroup(domain, geompy.ShapeType[solid_type])
 geompy.UnionList( Solid_shear, shear_heat_zones)
 Solid_cutter= geompy.CreateGroup(domain, geompy.ShapeType[solid_type])
 geompy.UnionList( Solid_cutter, cutter_zones)
+Solid_holder= geompy.CreateGroup(domain, geompy.ShapeType[solid_type])
+geompy.UnionList( Solid_holder, holder_zones)
 Solid_chip= geompy.CreateGroup(domain, geompy.ShapeType[solid_type])
 geompy.UnionList(Solid_chip, chip_zones)
 Solid_cutter_chip_transition= geompy.CreateGroup(domain, geompy.ShapeType[solid_type])
@@ -517,6 +570,8 @@ FaceGroupQuadMesh = add_group_by_center_condition(domain, cond_quad, "FACE", 'Fa
 if using_3D:
     velist = get_shape_list_by_center_condition(domain, lambda p: math.fabs(p[2] - 0.5*extrusion_thickness) < 1e-5)
     VerticalEdgeGroup = geompy.CreateGroup(domain, geompy.ShapeType["EDGE"])
+    if using_3D_holder:
+        velist += get_shape_list_by_center_condition(domain, lambda p: math.fabs(p[2] - holder_middle_z) < 1e-5)
     geompy.UnionList(VerticalEdgeGroup, velist)
     geompy.addToStudyInFather(domain, VerticalEdgeGroup, 'VerticalEdgeGroup' )
     if using_workpiece_extra_extusion:
@@ -569,9 +624,9 @@ if using_3D:
     smesh.SetName(Prism_3D.GetAlgorithm(), 'Prism_3D')
 
     #submesh
-    Regular_1D_1 = Mesh_1.Segment(geom=Partition_1)
-    status = Mesh_1.AddHypothesis(Number_of_Segments_default,Partition_1)
-    MEFISTO_2D_1 = Mesh_1.Triangle(algo=smeshBuilder.MEFISTO,geom=Partition_1)
+    Regular_1D_1 = Mesh_1.Segment(geom=domain)
+    status = Mesh_1.AddHypothesis(Number_of_Segments_default,domain)
+    MEFISTO_2D_1 = Mesh_1.Triangle(algo=smeshBuilder.MEFISTO,geom=domain)
     smesh.SetName(MEFISTO_2D_1.GetAlgorithm(), 'MEFISTO_2D')
 
     Sub_mesh_1 = Regular_1D_1.GetSubMesh()
@@ -618,7 +673,7 @@ else:
     MEFISTO_2D = Mesh_1.Triangle(algo=smeshBuilder.MEFISTO)
 
     Regular_1D_2 = Mesh_1.Segment(geom=ShortEdgeGroup)
-    Number_of_Segments_single = Regular_1D_2.NumberOfSegments( line_segment_nb_small)
+    Number_of_Segments_single = Regular_1D_2.NumberOfSegments(line_segment_nb_small)
     Sub_mesh_2 = Regular_1D_2.GetSubMesh()
 
     smesh.SetName(Mesh_1.GetMesh(), 'Mesh_1')
@@ -688,7 +743,7 @@ else:
 
 isDone = Mesh_1.Compute()
 
-    #[ Solid_chip_1, Solid_shear_1, Solid_friction_1, Solid_work_1, Solid_cutter_1, inlet_1, chipEnd_1, Solid_holder_1] = Mesh_1.GetGroups()
+#[ Solid_chip_1, Solid_shear_1, Solid_friction_1, Solid_work_1, Solid_cutter_1, inlet_1, chipEnd_1, Solid_holder_1] = Mesh_1.GetGroups()
 
 
 #Mesh_1.ExportMED( '/media/sf_OneDrive/Fenics/metal_cut/salome_mesh/Mesh_dolfin.med', 0, SMESH.MED_V2_2, 1, None ,1)
