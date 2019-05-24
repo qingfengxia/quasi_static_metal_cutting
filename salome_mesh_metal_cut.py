@@ -515,12 +515,16 @@ for i,v in enumerate(vlist):
             work_zones.append(v)
             print("identified as Solid_work")
         elif ( _angle < _angle_cutter) and coords[1] < cutter_H*0.6:
-            if coords[2] > 0:
+            if using_3D:
+                if coords[2] > 0:
+                    cutter_zones.append(v)
+                    print("identified as Solid_cutter")
+                else:
+                    holder_zones.append(v)
+                    print("identified as Solid_holder overlapping with cutter")
+            else:
                 cutter_zones.append(v)
                 print("identified as Solid_cutter")
-            else:
-                holder_zones.append(v)
-                print("identified as Solid_holder overlapping with cutter")
         elif coords[1] > cutter_H * 0.6:  # is that works for 
             holder_zones.append(v)
             print("identified as Solid_holder")
@@ -551,7 +555,6 @@ geompy.addToStudyInFather( domain, Solid_holder, 'Solid_holder' )
 geompy.addToStudyInFather( domain, Solid_cutter_chip_transition, 'Solid_cutter_chip_transition' )
 
 # independent of 2D or 3D, in same case,  heat thickness is not counted as short edge
-small_edge_length_threshold = feed_thickness * 0.25
 velist = get_edge_list_by_length_condition(domain, lambda p, l: math.fabs(l) < small_edge_length_threshold  and math.fabs(p[2]) < 1e-8 )
 ShortEdgeGroup = geompy.CreateGroup(domain, geompy.ShapeType["EDGE"])
 geompy.UnionList(ShortEdgeGroup, velist)
@@ -564,7 +567,7 @@ geompy.UnionList(FaceGroupTriangleMesh, fl_triangle)
 geompy.addToStudyInFather( domain, FaceGroupTriangleMesh, 'FaceGroupTriangleMesh' )
 
 #2D also have z coordinates? friction heat zone may be triangle shape
-cond_quad = lambda p: math.fabs(p[2]) < 1e-6 and math.atan2(p[1], p[0]) < math.pi and math.atan2(p[1], p[0]) > _angle_cutter
+cond_quad = lambda p: math.fabs(p[2]) < 1e-6 and math.atan2(p[1], p[0]) < math.pi * 0.75 and math.atan2(p[1], p[0]) > _angle_cutter
 FaceGroupQuadMesh = add_group_by_center_condition(domain, cond_quad, "FACE", 'FaceGroupQuadMesh')
 
 if using_3D:
@@ -618,21 +621,31 @@ smesh = smeshBuilder.New(theStudy)
 if using_3D:
     Mesh_1 = smesh.Mesh(domain)
     Regular_1D = Mesh_1.Segment()
-    Number_of_Segments_default = Regular_1D.NumberOfSegments(line_segment_nb_default)
+    Number_of_Segments_default = Regular_1D.NumberOfSegments(line_segment_nb_default)#
+    smesh.SetName(Regular_1D.GetAlgorithm(), 'Regular_1D')
     MEFISTO_2D = Mesh_1.Triangle(algo=smeshBuilder.MEFISTO)
+    smesh.SetName(MEFISTO_2D.GetAlgorithm(), 'MEFISTO_2D')
     Prism_3D = Mesh_1.Prism()
     smesh.SetName(Prism_3D.GetAlgorithm(), 'Prism_3D')
 
-    #submesh
-    Regular_1D_1 = Mesh_1.Segment(geom=domain)
-    status = Mesh_1.AddHypothesis(Number_of_Segments_default,domain)
-    MEFISTO_2D_1 = Mesh_1.Triangle(algo=smeshBuilder.MEFISTO,geom=domain)
-    smesh.SetName(MEFISTO_2D_1.GetAlgorithm(), 'MEFISTO_2D')
-
-    Sub_mesh_1 = Regular_1D_1.GetSubMesh()
+    #submesh the face partition
+    if using_3D_holder:
+        # still not working
+        flist = get_shape_list_by_center_condition(Extrusion_1, lambda p: math.fabs(p[2]) < 1e-5)
+        Z0FaceGroup = geompy.CreateGroup(Extrusion_1, geompy.ShapeType["FACE"])
+        geompy.UnionList(Z0FaceGroup, flist)
+        geompy.addToStudyInFather(Extrusion_1, Z0FaceGroup, 'Z0FaceGroup' )
+        face_domain = Z0FaceGroup
+    else:
+        face_domain = Partition_1
+        # this is important to make shear mapping bc pair
+        Regular_1D_1 = Mesh_1.Segment(geom=face_domain)
+        status = Mesh_1.AddHypothesis(Number_of_Segments_default, face_domain)
+        MEFISTO_2D_1 = Mesh_1.Triangle(algo=smeshBuilder.MEFISTO,geom=face_domain)
+        Sub_mesh_1 = Regular_1D_1.GetSubMesh()
 
     Regular_1D_2 = Mesh_1.Segment(geom=ShortEdgeGroup)
-    Number_of_Segments_single = Regular_1D_2.NumberOfSegments( line_segment_nb_small)
+    Number_of_Segments_single = Regular_1D_2.NumberOfSegments(line_segment_nb_small)
     Sub_mesh_2 = Regular_1D_2.GetSubMesh()
 
     Regular_1D_3 = Mesh_1.Segment(geom=VerticalEdgeGroup)
@@ -650,7 +663,6 @@ if using_3D:
     #Sub_mesh_4 = MEFISTO_2D_2.GetSubMesh()
 
     ## Set names of Mesh objects
-    smesh.SetName(Regular_1D.GetAlgorithm(), 'Regular_1D')
     smesh.SetName(Number_of_Segments_single, 'Number_of_Segments_small')
     smesh.SetName(Number_of_Segments_default, 'Number_of_Segments_default')
 
@@ -738,7 +750,7 @@ if using_3D:
     else:  #split, dolfin only support tetra
         Mesh_1.SplitVolumesIntoTetra( Mesh_1, 1)
 else:
-    Mesh_1.SplitVolumesIntoTetra( Mesh_1, 1)
+    Mesh_1.QuadTo4Tri(Mesh_1)  # how to split 2D?
     pass
 
 isDone = Mesh_1.Compute()

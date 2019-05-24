@@ -49,14 +49,14 @@ has_pressing_zone = 0;
 #F_cutting = 596;
 #F_thrush= 324;  # jasper case 4
 
-#
-cutter_H = 0.005;
-cutter_W =0.005;
+# http://www.carbidedepot.com/CTAPR123B-P78366.aspx,  8-10 mm
+cutter_H = 0.005;  # half inch
+cutter_W =0.005;  # half inch
 
 cutter_angle_h = 5;  #degree, not used in this program yet
 
-holder_H = 0.01;
-holder_W =0.008;
+holder_H = 0.012;  # 0.75 inch, 
+holder_W =0.012;
 holder_thickness = cutter_thickness;
 holder_top_y = holder_H;
 

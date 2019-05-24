@@ -16,6 +16,10 @@ updated on Jan 4 2019
 + tune velocity field, make it tangential with boundary  -> mapping boundary pair in V6
 + v6 remove all gmsh foam related code, use salome for all cases
 + frictional heat zone is marked out to use different thermal properties (linear model)
+ since May 2019, paper revision
++ 3D holder shape, but mapping boundary bc pair as periodic_boundary failed
++ nonlinear looping is working now, but assuming same dc_dT for all zones
++ WC material properties updated
 
 ## observation or just information
 
@@ -59,8 +63,8 @@ Karpart 2006 table2 and table3, but nonlinear material property is not found
 - judge from parameter study, the biggest error (deviation from experimental interface temperature)
  is caused by the assumption of rectangular friction zone
 
-- heat generation != volume integral, estimated error 1.5`%, no impact on heat partition. 
-  reason: metal_k/dT does not affect, but metal_capacity/dT make a difference
+- heat generation != volume integral, estimated error 1~1.5%
+  reason: metal_k/dT does not affect, but metal_capacity/dT make a difference, refine mesh can reduce this error a bit
 
 - cutter material thermal properties uses metal work 's, error 0.5% estimated from linear model
   : thermal contact can decrease heat transfer into cutter, 
@@ -171,8 +175,11 @@ else:
 mesh_file_root = meshfolder + "/metal_cut"
 
 if is_preprocessing:
+    if using_MPI:
+        raise NotImplementedError()
     #also save some field into hdf5, which can not been run in parallel
     if using_salome:
+        #generate_salome_mesh('salome_mesh_metal_cut_1.py')
         generate_salome_mesh('salome_mesh_metal_cut.py')
         convert_salome_mesh_to_dolfin(mesh_file_root + '.xml')
         if exporting_foam:
@@ -185,6 +192,7 @@ if is_preprocessing:
             sys.exit()  # no need to carry on, since fenics will not support hex mesh or mixed cell in xml file
 
     convert_to_hdf5_mesh_file(mesh_file_root + '.xml')
+#MPI: load from hdf5 file
 mesh_file = meshfolder + "/metal_cut.h5"
 print("mesh file name", mesh_file)
 
@@ -199,6 +207,7 @@ tol = 2e-7
 radian_tol = 1e-3  # this is required for minus cutting angle
 _a_phi = pi - shear_angle * pi/180
 class TurningInterface(SubDomain):
+    # chip size shear plane
     def inside(self, x, on_boundary):
         if near(x[0], 0) and near(x[1], 0) and on_boundary:
             #print(x)  # if both x, y are zero,  atan2() returns zero
@@ -219,7 +228,7 @@ class FrictionalInterface(SubDomain):
             return bool( math.fabs(angle - _a_cutter_v) < radian_tol and x[1] <= chip_ccc_y+tol \
                                 and x[1] >= -tol and on_boundary)
 
-if using_chip_cutter_mapping_bc:
+if using_chip_cutter_mapping_bc:  # frictional interface 
     class PeriodicBoundary(SubDomain):
         # Left boundary is "target domain" G
         def inside(self, x, on_boundary):
@@ -232,7 +241,7 @@ if using_chip_cutter_mapping_bc:
             angle = math.atan2(x[1], x[0]+mapping_bc_gap)
             angle2 = math.atan2(x[1], x[0])
             return bool(((math.fabs(angle - _a_phi) < radian_tol and x[1] >= -tol and x[0]+mapping_bc_gap <= tol) \
-                            or (math.fabs(angle2 - _a_cutter_v) < radian_tol and x[1] <= chip_ccc_y+tol and x[1] >= -tol))  \
+                            or (math.fabs(angle2 - _a_cutter_v) < radian_tol and x[1] <= chip_ccc_y+tol and x[1] >= -tol)) \
                         and on_boundary)
 
         # Map x in right boundary (H) to y in left boundary (G)
@@ -241,7 +250,7 @@ if using_chip_cutter_mapping_bc:
             y[1] = x[1]
             if using_3D:
                 y[2] = x[2]
-else:
+else:  # shear interface
     class PeriodicBoundary(SubDomain):
         # Left boundary is "target domain" G
         def inside(self, x, on_boundary):
@@ -311,6 +320,8 @@ def solve_ht():
     if considering_radiation:
         settings['radiation_settings']= {'ambient_temperature': T_ambient, 'emissivity': emissivity}
 
+    import time  # dolfin has time function
+    ts_before_preprocessing = time.time()
     solver = ScalarTransportSolver.ScalarTransportSolver(settings)
 
     Q = solver.function_space
@@ -329,9 +340,6 @@ def solve_ht():
     unity = Function(DG0)
     unity.vector()[:] = 1 #interpolate(Expression('1', element_degree), DG0)
 
-    if using_MPI:
-        raise NotImplementedError()
-        #load from hdf5 file
 
     # Numerical simulations of advection-dominated scalar mixing with applications to spinal CSF flow and drug transport
     if not using_nonlinear_thermal_properties:
@@ -344,8 +352,6 @@ def solve_ht():
     shear_heat, friction_heat = get_heat_source()
     shear_heat_density = shear_heat / shear_heat_volume  # W/m3
     friction_heat_density = friction_heat / nominal_friction_heat_volume
-    if not using_3D:
-        shear_heat, friction_heat = shear_heat/cutter_thickness, friction_heat/cutter_thickness
     print("heating volume and intensity; ", shear_heat_volume, friction_heat_volume, shear_heat_density, friction_heat_density)
     if True:  # test passed, non-uniform heat source can be implemented later
         class HeatSourceExpression(Expression):
@@ -444,6 +450,7 @@ def solve_ht():
 
     if has_convective_velocity:
         if using_mapping_bc: # test if bc is found
+            # those are used in post-processing, PeriodicBoundary should be done in function space creation
             mapping_periodic_boundary = PeriodicBoundary()
             mapping_periodic_boundary.mark(solver.boundary_facets, mapping_boundary_id, check_midpoint = True)
             #
@@ -482,14 +489,15 @@ def solve_ht():
             raise NotImplementedError('this work piece shape id is not supported')
 
 
-    def update_material_property(DG0, subdomains, material_values, T_DG0, cutter_value, metal_f):
+    def update_material_property(DG0, subdomains, material_values, T_DG0, cutter_f, metal_f):
         # it takes very long time to complete if set individually
         did = np.asarray(subdomains.array(), dtype=np.int32)
         u = Function(DG0)
-        u_new = metal_f(T_DG0.vector().array())  # return numpy.array
+        u.vector()[:]  = metal_f(T_DG0.vector().get_local())  # return numpy.array
         #print(type(u_new), u_new.size, u.vector().array().size)
-        u.vector()[:] = u_new[:]
-        u.vector()[did == cutter_subdomain_id] = cutter_value
+
+        u.vector()[did == cutter_subdomain_id]  = cutter_f(T_DG0.vector().get_local())[did == cutter_subdomain_id]
+        #u.vector()[did == cutter_subdomain_id] = cutter_value
         """
         for i, v in enumerate(did):
             if (v == cutter_subdomain_id):
@@ -499,34 +507,42 @@ def solve_ht():
         """
         return u
 
-    #my own nonliner_loop, updating material property and heat intensity
-    if using_nonlinear_loop:
+    ts_after_preprocessing = time.time()
+    # my own nonliner loop, updating material property in each iteration
+    if using_nonlinear_loop:  # 3D looping is possible
+        assert not using_MPI  # setting material property may not working in parallel
         loop_i = 0
-        loop_N = 5
+        loop_N = 10
         T_old = Function(solver.function_space)  #default to zero, Yes
         while loop_i < loop_N:
             T = solver.solve()
             T_mean_diff = np.mean(T_old.vector()[:] - T.vector()[:])
-            print("=== completed loop ", loop_i, " ======= ", T_mean_diff)
+            print("=== nonlinear loop ", loop_i, " ======= ", T_mean_diff)
             if  math.fabs(T_mean_diff) < 0.1:
                 break
             T_DG0 = project(T, DG0)
-            capacity_field = update_material_property(DG0, solver.subdomains, material_capacity_list, T_DG0, material_cutter['capacity'], metal_capacity_f)
+            capacity_field = update_material_property(DG0, solver.subdomains, material_capacity_list, T_DG0, cutter_capacity_f, metal_capacity_f)
             solver.material['capacity'] = capacity_field
-            k_field = update_material_property(DG0, solver.subdomains, material_k_list, T_DG0, material_cutter['thermal_conductivity'], metal_k_f)
+            k_field = update_material_property(DG0, solver.subdomains, material_k_list, T_DG0, cutter_k_f, metal_k_f)
             solver.material['thermal_conductivity'] = k_field
+            #solver.solve() has considered dc/dT        ignore dk/dT
+            #to trigger this condition: if 'dc_dT' in self.material:
 
             T_old.vector()[:] = T.vector()[:]
             loop_i += 1
+            #ofile = File(result_folder + "k.pvd")  # not for parallel
+            #ofile << solver.material['thermal_conductivity']
     else:
         T = solver.solve()
 
-
+    ts_before_postprocessing = time.time()
     if using_MPI:
         mf = HDF5File(mpi_comm_world(),  result_folder + "metal_cutting_result" +'.h5', 'w')
         #mf = XDMFFile(mpi_comm_world(), result_name+'.xdmf')
         mf.write(T, "T")
         mf.write(V.mesh(), "mesh")
+        #post processing is not possible in parallel?
+        sys.exit()
     else:
         #interpolate the higher order solution onto a finer linear space
         T.rename("Temperature (C)", "temperature contour")
@@ -550,8 +566,13 @@ def solve_ht():
     heat_chip = assemble(heat_source*dx(chip_subdomain_id))
     print("shear_heat, friction_heat, heating by chip (should be zero) by integration", heat1, heat2, heat_chip)
     total_heat = assemble(heat_source*dx)
-    print("total_heat, ratio of heat integral to the defined", total_heat,  total_heat/(shear_heat + friction_heat))
-    if math.fabs(total_heat/(shear_heat + friction_heat) - 1) > validation_tol:
+    if using_3D:
+        heat_ratio = total_heat/(shear_heat + friction_heat)
+    else:
+        #total_heat = total_heat*cutter_thickness
+        heat_ratio = total_heat*cutter_thickness/(shear_heat + friction_heat)
+    print("total_heat, ratio of heat integral to the defined", total_heat,  heat_ratio)
+    if math.fabs(heat_ratio - 1) > validation_tol:
         error_message += "heat generation != heat source integration"
         is_simulation_valid = False
 
@@ -786,6 +807,10 @@ def solve_ht():
         error_message += "\n heat generaton and heat loss are not equal\n"
         is_simulation_valid = False
 
+    ts_after_post_processing = time.time()
+    print('=============== time consumption ===========')
+    print('preprocessing time', ts_after_preprocessing - ts_before_preprocessing)
+    print('assembling and LA solving time', ts_before_postprocessing - ts_after_preprocessing)
 
     if using_debug:
         #plot(solver.boundary_facets)

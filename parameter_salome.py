@@ -13,27 +13,41 @@ mapping_bc_gap = 5e-6 # should be small after debug
 
 friction_mapping_gap_volume = mapping_bc_gap * cos(cutter_angle_v*pi/180) * actual_friction_heat_length * cutter_thickness
 print("friction_mapping_gap_volume = ", friction_mapping_gap_volume)
+extrusion_thickness = cutter_thickness #
 
 # 0 is rectangle section, 1 disc, 2 work is very thin, 3 for mapping BC
 using_fillet_shear_zone = not using_mapping_bc
 
-extrusion_thickness = cutter_thickness #
+#to change the extrusion direction
+holder_middle_z = - 0.5*holder_thickness
+holder_bottom_x = 0.001
+holder_bottom_y = 0.001
+
 workpiece_extra_extusion_thickness = cutter_thickness * 1
 workpiece_min_z = - workpiece_extra_extusion_thickness
 
 pressing_heat_x = pressing_heat_width
 
 # sometime, quad is not divided into tri
-using_quad_mesh = False   # failed to convert all cell into tri
+using_quad_mesh = True # using_3D  # quad make 0.3% diff in Tint
 #and not using_nonlinear_thermal_properties  # quad at chip as possible, but not convergent for nonliner model
+small_edge_length_threshold = feed_thickness * 0.25
+if friction_heat_thickness > small_edge_length_threshold:
+    small_edge_length_threshold = friction_heat_thickness * 1.2
+
 
 if using_3D:
-    line_segment_nb_default = 20
-    line_segment_nb_small = 2  #
+    if element_degree == 1:
+        line_segment_nb_default = 60 # 60
+        line_segment_nb_small = 6 # 6 is enough
+    else:
+        line_segment_nb_default = 20  # 30 is too big to solve
+        line_segment_nb_small = 3  # it is important to make it bigger
+    line_segment_nb_vertical = 1
 else:
-    line_segment_nb_default = 30  # case 6,8  can not converge
-    line_segment_nb_small = 1  # 3 make low quality cells which may lead to divergence
-line_segment_nb_vertical = 2
+    line_segment_nb_default = 40  # case 6,8  can not converge
+    line_segment_nb_small = 5  # at least 10% of default nb seg
+    line_segment_nb_vertical = 2
 
 # workpiece_type_id defined in parameter_case.py
 # if workpiece is not a full disc (type 1)
