@@ -1,24 +1,24 @@
 ## Introduction
 
-This is code for the paper to be published:
-*Quasi-static 3D and 2D FEM nonlinear thermal model for high speed metal cutting*
-
-Journal paper: preprint link to be add later?
+This is code for the journal paper published:
+QingfengXia, David R.H. Gillespie, Quasi-static  finite element modelling of thermal distribution and heat partitioning  for the multi-component system of high speed metal cutting, 
+*Journal of Materials Processing Technology*, 2019,  https://doi.org/10.1016/j.jmatprotec.2019.116389
 
 ## License (Academic Creative)
 
-It is free to use my code for non-commercial purposes, but please refer to my *paper* to ack this work.
+It is free to use my code for non-commercial purposes, but please cite my *paper* to ack this work.
 For commercial usage, contact me to relicense it, I can do contract coding/consultancy for industries.
 
 ## key features
 
-see more details in my paper <link to be added later>
+see more details in my paper <https://doi.org/10.1016/j.jmatprotec.2019.116389>
 
 1. nonlinear material properties and realistic geometry
-2. quasi-static reduced order model, it is very fast
-3. special way to deal with unphysical heat flux at the material-air boundary
+2. quasi-static reduced order model, it is very fast, quasi-static 2D simulation can be completed in 3 seconds.
+3. special way to deal with unphysical heat flux at the material-air boundary, see details in my paper
 4. heat partition for work-chip, tool-chip can be calcuated directly from this multi-body FEM model
-5. this is an example of automated engineering simulation, see my ppt on Fenics18 conference: <>
+5. this is an example of automated engineering simulation, see my ppt on Fenics18 conference and my `CAE_pipeline` repo
+<https://github.com/qingfengxia/CAE_pipeline>
 
 ```bash
 #/opt/SALOME-8.5.0-UB16.04-SRC/runSalome -t -b /myScript

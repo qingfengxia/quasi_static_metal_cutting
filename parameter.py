@@ -6,7 +6,7 @@ from material import *
 
 validation_datafile = "validation.csv"
 is_batch_mode = True
-using_debug = False
+using_debug = True  # save boundary velocity, heat source to file for checking
 using_salome = True
 is_preprocessing = True # for non-parallel, it can be done all togother
 
@@ -59,9 +59,9 @@ extracting_data = False
 using_3D = False
 using_2D = not using_3D
 using_workpiece_extra_extusion = False and using_3D
-#if using_2D:
-#    cutter_thickness = 1  # overriding 
+using_3D_holder = False and using_3D  # holder_thickness is defined in case_parameter.py, divergence for nonlinear
 
+element_degree = 2  # will second order help easing velocity unsmoothing,  yes!
 exporting_foam = False
 
 #using_mapping_bc = 1;   # otherwise fillet
@@ -77,7 +77,7 @@ using_chip_cutter_transition = has_friction_transition_zone  # another name defi
 has_convective_velocity = True
 considering_radiation = False # neglectible impact on interface temperature
 
-element_degree = 2  # will second order help easing velocity unsmoothing,  yes!
+
 #using_nonlinear_thermal_properties = False  # controlled in material.py
 using_stab = False # stabilization causes less mass heat flux, while no stab ; totally diff contour
 IP_alpha = 2
@@ -92,14 +92,15 @@ result_filename =  'results/results_testing.csv'
 #result_filename =  'results/results_delta_nonlinear_exp.csv'
 #result_filename =  'results/results_C_0_nonlinear_exp.csv'
 #result_filename =  'results/results_2D_nonlinear_exp.csv'
-#result_filename =  'results/results_validation_nonlinear_exp.csv'
+result_filename =  'results/results_validation_nonlinear_exp_quad.csv'
+#result_filename =  'results/results_validation_nonlinear_exp_nonuniform_thickness_3D.csv'
 #result_filename =  'results/results_validation_nonlinear.csv'
 
 #if "meshing_only" in sys.argv or "preprocessing" in sys.argv:
 #    is_preprocessing = True
 
 #replace `double#doubleZZdouble##` line to parameter by sed in batch mode
-##ZZ##
+case_id=2
 
 ###############################################
 if defined('case_id_supplied') and case_id_supplied:
@@ -161,6 +162,7 @@ else:
 
 
 ###############################################
+chip_length = chip_friction_distance * 2.5
 shear_heat_volume = l_AB * shear_heat_thickness * cutter_thickness # m3, ignore angle
 if using_double_shear_heat_layer:
     friction_heat_start = shear_heat_thickness/2.0/sin((90-cutter_angle_v+shear_angle)*pi/180)  #double layers
@@ -172,7 +174,7 @@ chip_volume = chip_thickness * cutter_thickness * chip_length # rough value  for
 
 
 # uniform at the beginning, with higher density, then drop linearly
-nonuniform_friction_heat = False  # currently assume nonuniform_friction_thickness == False
+nonuniform_friction_heat = True  # currently assume nonuniform_friction_thickness == False
 nonuniform_friction_heat_configuration = 1
 if nonuniform_friction_heat:
     if nonuniform_friction_heat_configuration == 1:
@@ -180,7 +182,7 @@ if nonuniform_friction_heat:
         uniform_heat_ratio = 1.0
         actual_friction_heat_length = friction_heat_length * ( uniform_length_ratio + (1.0 - uniform_length_ratio) * 2)
     else:
-        uniform_length_ratio = 0.3333333333  # total heating length increased, but the heat ratio kept
+        uniform_length_ratio = 0.3333333333  # length is kept
         uniform_heat_ratio = 1.5
         actual_friction_heat_length = friction_heat_length
     actual_friction_heat_distance = friction_heat_start + actual_friction_heat_length
@@ -189,9 +191,9 @@ else:
     actual_friction_heat_length = friction_heat_length
 
 
-nonuniform_friction_thickness = True
+nonuniform_friction_thickness = False
 if nonuniform_friction_thickness:
-    friction_end_thickness = 5e-6
+    friction_end_thickness = 1e-5
     actual_friction_heat_thickness = (friction_heat_thickness + friction_end_thickness) * 0.5
     friction_heat_volume = actual_friction_heat_length * actual_friction_heat_thickness * cutter_thickness
 else:
@@ -203,7 +205,7 @@ print("calculated volume for shear, friction and chip:", shear_heat_volume, fric
 """
 uniform_length_ratio = 0.3
 uniform_friction_heat_distance = friction_heat_start + friction_heat_length * uniform_length_ratio
-uniform_heat_ratio = 2.0/(1 + uniform_length_ratio)
+uniform_heat_ratio = 2.0/(1 + uniform_length_ratio)+
 """
 
 ###############################################

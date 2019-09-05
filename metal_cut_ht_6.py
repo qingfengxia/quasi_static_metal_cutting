@@ -79,6 +79,7 @@ import math, sys, os.path
 #from subprocess import run_command
 import numpy as np
 
+#=============================
 try:
     #from mshr import *
     from dolfin import *
@@ -92,15 +93,12 @@ if dolfin.MPI.size(dolfin.mpi_comm_world())>1:
 else:
     using_MPI = False
 
-print(dolfin.dolfin_version())
+#print(dolfin.dolfin_version())
 ver = dolfin.dolfin_version().split('.')
 if int(ver[0]) <= 2017 and int(ver[1])<2:
     using_VTK = True
 else:
     using_VTK = False
-
-def defined(x):
-    return x in locals() or x in globals()
 
 # in case if you have not install Fenics and FenicsSolver to python path
 sys.path.append('/media/sf_OneDrive/gitrepo/FenicsSolver')
@@ -112,7 +110,14 @@ from FenicsSolver import ScalarTransportSolver
 #solver.parameters['report'] = verbose
 parameters['std_out_all_processes'] = False
 #parameters['ghost_mode'] = 'shared_facet'
+#===============================
 
+def defined(x):
+    return x in locals() or x in globals()
+
+
+from dolfin_utilities import mark_boundary_for_subdomain, convert_to_hdf5_mesh_file
+'''
 #shearing zone velocity step has big impact on chipend flux out.
 def mark_boundary_for_subdomain(mesh, subdomains):
     boundaries = MeshFunction("size_t", mesh, mesh.geometry().dim()-1)
@@ -146,7 +151,7 @@ def convert_to_hdf5_mesh_file(filename):
         boundaries = mark_boundary_for_subdomain(mesh, subdomains)
     hdf.write(boundaries, "/boundaries")
     print("XML mesh files have been converted into HDF5 file")
-
+'''
 
 ################geometry parameter for gmsh################
 using_gmsh = False  # gmsh only works for  metal_cut_ht_5
@@ -160,7 +165,7 @@ else:
     from parameter_gmsh import *  # current not completed
 
 from velocity_expression import velocity_code
-from utility import generate_salome_mesh, convert_salome_mesh_to_dolfin, convert_salome_mesh_to_foam
+from mesh_utilities import generate_salome_mesh, convert_salome_mesh_to_dolfin, convert_salome_mesh_to_foam
 from analytical import get_heat_source, get_analytical_T, get_heat_partition
 ############### derived parameters,  math function has diff name ! #################
 

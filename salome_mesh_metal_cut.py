@@ -20,10 +20,8 @@ except:
     print('First of all, os.chdir to the folder where salome_parameter.py is located')
     sys.exit()
     #os.chdir('/media/OneDrive/Fenics/metal_cut/')
-from math import sin, cos, tan, pi
 
-from parameter_salome import *  # restart salome if any change in this parameter file
-
+######################################
 #/opt/SALOME-8.5.0-UB16.04-SRC/runSalome -t -b /myScript
 ## the sequence of gmsh options is important
 #gmsh4 -format msh2   -o metal_cut.msh -save Mesh_1.med
@@ -31,6 +29,8 @@ from parameter_salome import *  # restart salome if any change in this parameter
 ##########################################
 #derived parameter
 
+from math import sin, cos, tan, pi
+from parameter_salome import *  # restart salome if any change in this parameter file
 
 
 ###

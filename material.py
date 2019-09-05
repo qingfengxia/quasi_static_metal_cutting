@@ -1,5 +1,5 @@
-using_nonlinear_thermal_properties = True
-using_nonlinear_loop = False # not using_nonlinear_thermal_properties  # controlled in material.py
+using_nonlinear_thermal_properties = False
+using_nonlinear_loop = not using_nonlinear_thermal_properties # not using_nonlinear_thermal_properties  # controlled in material.py
 has_friction_transition_zone = True
 has_pressing_zone = False
 ###################################
@@ -112,13 +112,21 @@ material_work = {'thermal_conductivity':  metal_k, 'density': metal_density, 'sp
 'thermal_expansion_coefficient': 11.2e-6}
 
 
-
 material_friction_transition = material_work.copy()
 material_friction_transition['thermal_conductivity'] = metal_k_0/2.0
 # not checked
 material_cutter = {'thermal_conductivity': 85 , 'density': 15200, 'specific_heat_capacity': 280, 'capacity': 15200*280,
     'thermal_expansion_coefficient': 4.5e-6}
 #https://www.makeitfrom.com/material-properties/Tungsten-Carbide-WC
+
+if True:
+    cutter_cp_f = metal_cp_f
+    cutter_k_f = metal_k_f
+    cutter_capacity_f = metal_capacity_f
+else:
+    cutter_cp_f = lambda T: (280 + 0.2504*(T-T_reference_material))
+    cutter_k_f = lambda T: (85 - 0.0281*(T-T_reference_material))
+    cutter_capacity_f = lambda T: (280*152000 + 0.2504*152000*(T-T_reference_material))
 
 material_list = [material_work] * subdomain_number
 ##cutter has higher k, but contact resitance is not considered, treat cutter as workpiece material to consider that
