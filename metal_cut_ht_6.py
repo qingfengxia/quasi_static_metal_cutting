@@ -1,4 +1,4 @@
-""" 
+"""
 solver developing notes
 version 6.0
 updated on Jan 4 2019
@@ -67,9 +67,9 @@ Karpart 2006 table2 and table3, but nonlinear material property is not found
   reason: metal_k/dT does not affect, but metal_capacity/dT make a difference, refine mesh can reduce this error a bit
 
 - cutter material thermal properties uses metal work 's, error 0.5% estimated from linear model
-  : thermal contact can decrease heat transfer into cutter, 
+  : thermal contact can decrease heat transfer into cutter,
   while regarding cutter material as workpiece can also decrease that,
-  the Tungsten Carbide's thermal property as functions are unknown, 
+  the Tungsten Carbide's thermal property as functions are unknown,
   so just do nothing on this.
 
 """
@@ -161,8 +161,9 @@ using_salome = not using_gmsh  # does not work since it is rect work shape
 if using_salome:
     from parameter_salome import *
 else:
-    raise RuntimeError('gmsh meshing has dropped out in this version')
+    raise RuntimeError('gmsh meshing has dropped/deleted in this version, use salome to mesh')
     from parameter_gmsh import *  # current not completed
+    sys.exit()
 
 from velocity_expression import velocity_code
 from mesh_utilities import generate_salome_mesh, convert_salome_mesh_to_dolfin, convert_salome_mesh_to_foam
@@ -233,7 +234,7 @@ class FrictionalInterface(SubDomain):
             return bool( math.fabs(angle - _a_cutter_v) < radian_tol and x[1] <= chip_ccc_y+tol \
                                 and x[1] >= -tol and on_boundary)
 
-if using_chip_cutter_mapping_bc:  # frictional interface 
+if using_chip_cutter_mapping_bc:  # frictional interface
     class PeriodicBoundary(SubDomain):
         # Left boundary is "target domain" G
         def inside(self, x, on_boundary):
@@ -553,7 +554,7 @@ def solve_ht():
         T.rename("Temperature (C)", "temperature contour")
         ofile = File(result_folder + "T.pvd")  # not for parallel
         ofile << T
-    
+
     ############################### post-processing#####################
 
     is_simulation_valid = True
@@ -591,7 +592,7 @@ def solve_ht():
     cooling_chip = assemble(htc_chip*(T-T_ambient)*ds(chip_htc_boundary_id))
     cooling_tool = assemble(htc_cutter*(T-T_ambient)*ds(cutter_htc_boundary_id) +
                                           htc_holder*(T-T_ambient)*ds(holder_htc_boundary_id))
-    cooling_total_HTC = cooling_work + cooling_chip + cooling_tool + cooling_frictinal_zone + cooling_shear_zone 
+    cooling_total_HTC = cooling_work + cooling_chip + cooling_tool + cooling_frictinal_zone + cooling_shear_zone
     cooling_HTC_all = assemble(htc_work*(T-T_ambient)*ds)  # not all surface are HTC
     print("convective cooling_work, cooling_chip, cooling_tool and holder, cooling_HTC_all",\
                 cooling_work, cooling_chip, cooling_tool, cooling_HTC_all)
@@ -858,7 +859,7 @@ def solve_ht():
     #also save thermal_number
     from datetime import datetime
     time_stamp  = datetime.utcnow().isoformat()
-    parameters = [time_stamp, case_id, workpiece_type_id, 
+    parameters = [time_stamp, case_id, workpiece_type_id,
         feed_thickness, chip_thickness, cutter_angle_v, shear_angle, cutting_speed, F_cutting, F_thrush,
         shear_heat_thickness, friction_heat_thickness, tool_chip_interface_length,
         T_ambient,  T_analytical_shear_zone, T_analytical_friction_zone,
