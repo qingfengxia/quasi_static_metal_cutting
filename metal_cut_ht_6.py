@@ -3,6 +3,8 @@ solver developing notes
 version 6.0
 updated on Jan 4 2019
 
+updated on May 14 2022, updated code for dolfin v2019.1
+
 
 ## version history
 
@@ -81,24 +83,39 @@ import numpy as np
 
 #=============================
 try:
+    import dolfin
     #from mshr import *
     from dolfin import *
-    set_log_level(WARNING)
+    print("found fenics version: ", dolfin.__version__)
+except ImportError as e:
+    print(e)
+    print('Fenics is not installed, exit')
+    exit(-1)
+
+try:
+    ver = dolfin.dolfin_version().split('.')
 except:
-    print('Fenics meshing is not installed, exit')
-    exit()
+    ver = dolfin.__version__.split('.')
 
-if dolfin.MPI.size(dolfin.mpi_comm_world())>1:
-    using_MPI = True
-else:
-    using_MPI = False
-
-#print(dolfin.dolfin_version())
-ver = dolfin.dolfin_version().split('.')
 if int(ver[0]) <= 2017 and int(ver[1])<2:
     using_VTK = True
 else:
     using_VTK = False
+
+# dolfin v2018  Rename ERROR, CRITICAL etc. to LogLevel.ERROR, LogLevel.CRITICAL.
+# dolfin v2018  Rename mpi_comm_world() to MPI.comm_world.
+if int(ver[0]) >= 2018:
+    set_log_level(LogLevel.WARNING) # depend on dolfin version, this line may failed
+    if dolfin.MPI.comm_world.size > 1:
+        using_MPI = True
+    else:
+        using_MPI = False
+else:
+    set_log_level(WARNING) # depend on dolfin version, this line may failed
+    if dolfin.MPI.size(dolfin.mpi_comm_world()) > 1:
+        using_MPI = True
+    else:
+        using_MPI = False
 
 # in case if you have not install Fenics and FenicsSolver to python path
 sys.path.append('/media/sf_OneDrive/gitrepo/FenicsSolver')
@@ -163,7 +180,7 @@ if using_salome:
 else:
     raise RuntimeError('gmsh meshing has dropped/deleted in this version, use salome to mesh')
     from parameter_gmsh import *  # current not completed
-    sys.exit()
+    sys.exit(-1)
 
 from velocity_expression import velocity_code
 from mesh_utilities import generate_salome_mesh, convert_salome_mesh_to_dolfin, convert_salome_mesh_to_foam
@@ -333,7 +350,8 @@ def solve_ht():
     Q = solver.function_space
     vector_degree = element_degree+1
     V = VectorFunctionSpace(solver.mesh, 'CG', vector_degree)
-    v_e = Expression(cppcode=velocity_code, degree=vector_degree)  # degree, must match function space
+    # Expression has been deprecated, user UserExpression instead
+    v_e = UserExpression(cppcode=velocity_code, degree=vector_degree)  # degree, must match function space
     v_e.subdomain_id = solver.subdomains
     velocity = Function(V)
     velocity.interpolate(v_e)  # does not work for MPI
@@ -406,7 +424,7 @@ def solve_ht():
                 solver.boundary_facets[facet.index()] = solver.subdomains[cell.index()]
     '''
 
-    if exporting_foam:
+    if exporting_foam and False:  # this is not supported in public repo
         #preset boundary value
         #DG vector space
         #v_e = Expression(cppcode=velocity_code, degree=vector_degree)  # degree, must match function space?

@@ -4,9 +4,8 @@ import os.path
 try:
     #from mshr import *
     from dolfin import *
-    set_log_level(WARNING)
 except:
-    print('Fenics meshing is not installed, exit')
+    print('Fenics is not installed, exit')
     exit()
 
 

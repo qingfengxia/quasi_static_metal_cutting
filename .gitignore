@@ -1,5 +1,6 @@
 results/*
 backup/*
+output/*
 #resutls files
 *.pvd
 *vtu

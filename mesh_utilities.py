@@ -6,6 +6,8 @@ import os.path
 import sys
 import time
 
+default_tmp_mesh_filename = '/tmp/Mesh_1.med'
+
 def run_command(comandlist):
     has_error = False
     try:
@@ -23,7 +25,7 @@ def defined(x):
     return x in locals() or x in globals()
 
 
-def generate_salome_mesh(mesh_gen_script, smesh_file = '/tmp/Mesh_1.med'):
+def generate_salome_mesh(mesh_gen_script, smesh_file = default_tmp_mesh_filename):
     # this function is quite specific to my pc setup
     salome_app = 'salome'  # salome should be accesible from PATH, by export PATH
     if not os.path.exists(salome_app):
@@ -31,24 +33,24 @@ def generate_salome_mesh(mesh_gen_script, smesh_file = '/tmp/Mesh_1.med'):
         sys.exit(-1)
     salome_cmd = "{} -t -b {}".format(salome_app, mesh_gen_script)
     os.system(salome_cmd)  # run_command will bring up GUI, but os.system does not!
-    #there is salome shutdown command inside the script
+    # there is salome shutdown command inside the script
     #"%PYTHONBIN%" "%KERNEL_ROOT_DIR%\bin\salome\runSalome.py" -t -u myScript.py
     #%PYTHONBIN% "%KERNEL_ROOT_DIR%\bin\salome\killSalome.py"
-    #salome_cmd = ["/opt/SALOME-8.5.0-UB16.04-SRC/salome", "-t", script]
-    #run_command(salome_cmd)
+    # salome_cmd = ["/opt/SALOME-8.5.0-UB16.04-SRC/salome", "-t", script]
+    # run_command(salome_cmd)
     check_mtime(smesh_file)
 
-def convert_salome_mesh_to_dolfin(output_dolfin_mesh, smesh_file = '/tmp/Mesh_1.med'):
+def convert_salome_mesh_to_dolfin(output_dolfin_mesh, smesh_file = default_tmp_mesh_filename):
     gmsh_filename = output_dolfin_mesh[:-4] + ".msh"
-    cmdline = "gmsh4 -format msh2 -o {} -save {}".format(gmsh_filename, smesh_file)
+    cmdline = "gmsh -format msh2 -o {} -save {}".format(gmsh_filename, smesh_file)
     run_command(cmdline)  # check the return value 'has_error' does not always work so check the output timestamp
     check_mtime(gmsh_filename)
     run_command("dolfin-convert {} {}".format(gmsh_filename, output_dolfin_mesh))
     check_mtime(output_dolfin_mesh)
 
-def convert_salome_mesh_to_foam(output_foam_case_folder, smesh_file = '/tmp/Mesh_1.med'):
+def convert_salome_mesh_to_foam(output_foam_case_folder, smesh_file = default_tmp_mesh_filename):
     gmsh_filename = smesh_file[:-4] + ".msh"
-    cmdline = "gmsh4 -format msh2 -o {} -save {}".format(gmsh_filename, smesh_file)
+    cmdline = "gmsh -format msh2 -o {} -save {}".format(gmsh_filename, smesh_file)
     run_command(cmdline)
     check_mtime(gmsh_filename)
     run_command("gmshToFoam -case {} {}".format(output_foam_case_folder, gmsh_filename))
@@ -73,7 +75,7 @@ def generate_gmsh_mesh(mesh_file_root, mesh_parameter_string):
                 outf.write(mesh_parameter_string)
                 outf.write(inf.read())
     # use gmsh4 instead gmsh3 here
-    gmshcmd = ['gmsh4 - -match -tol 1e-12 - {}.geo'.format(mesh_file_root)]
+    gmshcmd = ['gmsh - -match -tol 1e-12 - {}.geo'.format(mesh_file_root)]
     if(run_command(gmshcmd)):
         sys.exit()
     check_mtime(mesh_file_root + ".msh")
