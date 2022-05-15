@@ -98,7 +98,6 @@ except:
     ver = dolfin.__version__.split('.')
 
 if int(ver[0]) <= 2017 and int(ver[1])<2:
-    UserExpression = Expression
     using_VTK = True
 else:
     using_VTK = False
@@ -216,7 +215,8 @@ if is_preprocessing:
             sys.exit()  # no need to carry on, since fenics will not support hex mesh or mixed cell in xml file
 
     convert_to_hdf5_mesh_file(mesh_file_root + '.xml')
-#MPI: load from hdf5 file
+# MPI: can only load from hdf5 file
+convert_to_hdf5_mesh_file(mesh_file_root + '.xml')
 mesh_file = meshfolder + "/metal_cut.h5"
 print("mesh file name", mesh_file)
 
@@ -351,8 +351,15 @@ def solve_ht():
     Q = solver.function_space
     vector_degree = element_degree+1
     V = VectorFunctionSpace(solver.mesh, 'CG', vector_degree)
-    # Expression has been deprecated, user UserExpression instead
-    v_e = UserExpression(cppcode=velocity_code, degree=vector_degree)  # degree, must match function space
+    # Expression has been deprecated, use UserExpression instead
+    #print(help(Expression))
+    #print(help(UserExpression))
+    if int(ver[0]) <= 2017:
+        v_e = Expression(cppcode=velocity_code, degree=vector_degree)  # degree, must match function space
+    else:
+        # /usr/lib/petsc/lib/python3/dist-packages/dolfin/function/expression.py
+        print('user expression not working, I have not solve it on dolfin 2018+')
+        v_e = UserExpression(velocity_code, element = V.element(), degree=vector_degree) 
     v_e.subdomain_id = solver.subdomains
     velocity = Function(V)
     velocity.interpolate(v_e)  # does not work for MPI

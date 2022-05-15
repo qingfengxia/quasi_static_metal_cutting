@@ -8,7 +8,8 @@ import time
 
 default_tmp_mesh_filename = '/tmp/Mesh_1.med'
 # salome 9.x may be too new for this script, some version released in 2018 is better
-salome_app = '/media/sf_OneDrive/Salome-9.8.0/salome'
+# salome_app = '/media/sf_OneDrive/Salome-9.8.0/salome'
+salome_app = '/home/qingfeng/SALOME-9.7.0/salome'
 gmsh_app = '/media/sf_OneDrive/gmsh-4.10.2-Linux64/bin/gmsh'
 
 def run_command(comandlist):
