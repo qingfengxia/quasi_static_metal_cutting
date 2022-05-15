@@ -24,44 +24,93 @@ if you can not access from the publisher, here is the pre-print
 5. this is an example of automated engineering simulation, see my ppt on Fenics18 conference and my `CAE_pipeline` repo
 <https://github.com/qingfengxia/CAE_pipeline>
 
-```bash
-#/opt/SALOME-8.5.0-UB16.04-SRC/runSalome -t -b /myScript.py
-## the sequence of gmsh options is important
-## assuming gmsh version 4.x is install
-#gmsh -format msh2   -o metal_cut.msh -save Mesh_1.med
-#dolfin-convert metal_cut.msh metal_cut.xml
-```
 
-## Test
+## Install software required
+
+### Python3 + numpy scipy matplotlib + vtk
+
+The python3 program (I used in our published paper quasi-static thermal modelling) is based on Fenics, which is Linux only. I run it on ubuntu 18.04 in virtualbox, while you can have ubuntu 20.04 in WSL2 + Xwindows on windows 10.  If you have ubuntu 18.04/20.04 somewhere, you can run it without change anything hopefully.
+
+### mehser: gmsh Salome
+
+Salome could be needed,  it is a total open source workflow but with automated parameter study.
+
+https://www.salome-platform.org/?page_id=15
+
+gmsh4 can be download from gmsh website if on ubutnu 18.04. Here is the link: https://gmsh.info/bin/Linux/gmsh-4.10.2-Linux64.tgz
+
+On Ubuntu 20.04, [gmsh4 is the default version](https://ubuntu.pkgs.org/20.04/ubuntu-universe-arm64/gmsh_4.4.1+ds1-2build1_arm64.deb.html) `sudo apt-get install gmsh`
+
+### Fenics and FenicsSolver
+
+Recently Fenics upgraded to Fenics-X, the next generation, which will break the program. If stay with Ubuntu 20.04,  it is still the original fenics. compatible with FenicsSolver (a high-level wrapper of fenics library) I wrote and published on my github.
+
+`sudo apt-get install fenics`
+
+This link above should be useful to run the code, except install fenics 2019.1 from official repo, not from PPA.
+
+Install `FenicsSolver`: a high-level wrapper of fenics library
+
+### Extra setup (for some hardcoded path in scripts)
+
++ gmsh4 and salome path is hardcoded in my script, so you need to put them on PATH
++ `FenicsSolver` should also be included in your python`sys.path` need to fix it.
++ create folder_structure:  `mkdir output && mkdir salome_mesh && mkdir results`
+
+## Workflow pipeline
+
+### general workflow
+
+CAE_pipeline repo https://github.com/qingfengxia/CAE_pipeline
+
+### use case for metal cut in this repo
+
+To run the code, some basic knowledge of python3 is needed, as your new env would be different such as file path.
+
+0. install all the software required, as stated in previous section
+
+1. set parameters,  usually, there is a `parameter.py` 
+    edit `parameter.py` to switch on and off features.
+    edit `material.py` to switch on and off nonlinear material models and replace material.
+
+2. generate mesh using  gmsh or Salome (generate geometry and mesh)
+
+   please edit the var `gmsh_app` and `salome_app` path in`mesh_utitilies.py`
+
+   Here, we run salome in batch mode instead of GUI mode, myScript will be played to generate mesh.`/opt/SALOME-8.5.0-UB16.04-SRC/runSalome -t -b myScriptToGenerateMesh.py`  
+
+   On Ubuntu 18.04, the download tar name will be  `SALOME-x.y.0-UB18.04-SRC`,  salome 8.x is recommended, since I have not tested 9.x.   The python `myScriptToGenerateMesh.py` in metal cut case, is `salome_mesh_metal_cut.py`
+
+     `gmsh` is also needed to convert salome mesh into the med format, then `dolfin-convert` convert the mesh into vtk format for Fenics
+
+ ```sh
+## the sequence of gmsh options is important
+gmsh4 -format msh2   -o metal_cut.msh -save Mesh_1.med
+dolfin-convert metal_cut.msh metal_cut.xml
+ ```
+
+3. solve by  FenicsSolver (to solve and save vtk file)
+   there could be some batch shell script to drive parameter study
+
+   `python3 metal_cut_ht_6.py`
+
+4. post processing python matplotlib to plot result (postprocessing) and also paraview 
+   using paraview to view the result file `T.pvd`
+
+## Test platforms
 
 This code (no GUI code is involved) is developed on ubuntu 16.04/18.04, but it should run on any POSIX platform.
 
 As this is not a commercial product/complete software, this solver may not run on your PC out of box.
 
-First of all, install all dependencies listed below, then fix any problem related with filename and path name, good luck!
-
-Secondly, run the solver
-    edit `parameter.py` to switch on and off features.
-    edit `material.py` to switch on and off nonlinear material models and replace material.
-    `python3 metal_cut_ht_6.py`
-
-Finally, using paraview to view the result file `T.pvd`
-
-### Install Dependencies
-
-+ pyhton3 with Fenics installed, python2 would not be support any more
++ pyhton3.6 with Fenics installed, python2 would not be support any more
 + Fenics  v2017.2-v2019.1 tested, it will install all other essential python packages like numpy and matplotlib
-+ FenicsSolver   My Multiphysics solver based on Fenics    <> 
-+ salome platform
++ FenicsSolver   My Multiphysics solver based on Fenics 
++ salome platform 8.5
 + gmsh4
 
-### Extra setup
 
-+ gmsh4 and salome path is NOT hardcoded in my script any longer, so you need to put them on PATH
-+ `FenicsSolver` should also be included in your  python`sys.path` need to fix it.
-+ create folder_structure:  `mkdir output && mkdir salome_mesh && mkdir results`
-
-### Test with salome installed
+### Test without salome installed (NOT completed yet!!!)
 
 Without installing salome, it is possible to test the program (installation) by skip the preprocessing stage (mesh generation by salome), while the solving may fail if the mesh is not for the parameter.py
 

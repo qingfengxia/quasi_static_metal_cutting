@@ -8,6 +8,7 @@ validation_datafile = "validation.csv"
 is_batch_mode = True
 using_debug = True  # save boundary velocity, heat source to file for checking
 using_salome = True
+# set is_preprocessing = False can skip meshing generation but use updated mesh in salome_mesh/ folder
 is_preprocessing = True # for non-parallel, it can be done all togother
 
 # salome can not parse the parameter this way!
@@ -210,7 +211,7 @@ uniform_heat_ratio = 2.0/(1 + uniform_length_ratio)+
 
 ###############################################
 angle_phi = shear_angle;  # alias name
-holder_angle_v = cutter_angle_v+5;
+holder_angle_v = cutter_angle_v + 5
 
 #chip_sliding_distance = chip_friction_distance  # velocity expression
 tool_chip_interface_length = chip_friction_distance # tool chip interface length
