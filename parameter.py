@@ -8,6 +8,7 @@ validation_datafile = "validation.csv"
 is_batch_mode = True
 using_debug = True  # save boundary velocity, heat source to file for checking
 using_salome = True
+# set is_preprocessing = False can skip meshing generation but use updated mesh in salome_mesh/ folder
 is_preprocessing = True # for non-parallel, it can be done all togother
 
 # salome can not parse the parameter this way!

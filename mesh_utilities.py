@@ -7,6 +7,9 @@ import sys
 import time
 
 default_tmp_mesh_filename = '/tmp/Mesh_1.med'
+# salome 9.x may be too new for this script, some version released in 2018 is better
+salome_app = '/media/sf_OneDrive/Salome-9.8.0/salome'
+gmsh_app = '/media/sf_OneDrive/gmsh-4.10.2-Linux64/bin/gmsh'
 
 def run_command(comandlist):
     has_error = False
@@ -27,7 +30,6 @@ def defined(x):
 
 def generate_salome_mesh(mesh_gen_script, smesh_file = default_tmp_mesh_filename):
     # this function is quite specific to my pc setup
-    salome_app = 'salome'  # salome should be accesible from PATH, by export PATH
     if not os.path.exists(salome_app):
         print('Error: salome executable is not found in the specified path\n', salome_app)
         sys.exit(-1)
@@ -42,7 +44,7 @@ def generate_salome_mesh(mesh_gen_script, smesh_file = default_tmp_mesh_filename
 
 def convert_salome_mesh_to_dolfin(output_dolfin_mesh, smesh_file = default_tmp_mesh_filename):
     gmsh_filename = output_dolfin_mesh[:-4] + ".msh"
-    cmdline = "gmsh -format msh2 -o {} -save {}".format(gmsh_filename, smesh_file)
+    cmdline = "{} -format msh2 -o {} -save {}".format(gmsh_app, gmsh_filename, smesh_file)
     run_command(cmdline)  # check the return value 'has_error' does not always work so check the output timestamp
     check_mtime(gmsh_filename)
     run_command("dolfin-convert {} {}".format(gmsh_filename, output_dolfin_mesh))
@@ -50,7 +52,7 @@ def convert_salome_mesh_to_dolfin(output_dolfin_mesh, smesh_file = default_tmp_m
 
 def convert_salome_mesh_to_foam(output_foam_case_folder, smesh_file = default_tmp_mesh_filename):
     gmsh_filename = smesh_file[:-4] + ".msh"
-    cmdline = "gmsh -format msh2 -o {} -save {}".format(gmsh_filename, smesh_file)
+    cmdline = "{} -format msh2 -o {} -save {}".format(gmsh_app, gmsh_filename, smesh_file)
     run_command(cmdline)
     check_mtime(gmsh_filename)
     run_command("gmshToFoam -case {} {}".format(output_foam_case_folder, gmsh_filename))
@@ -75,7 +77,7 @@ def generate_gmsh_mesh(mesh_file_root, mesh_parameter_string):
                 outf.write(mesh_parameter_string)
                 outf.write(inf.read())
     # use gmsh4 instead gmsh3 here
-    gmshcmd = ['gmsh - -match -tol 1e-12 - {}.geo'.format(mesh_file_root)]
+    gmshcmd = ['{} - -match -tol 1e-12 - {}.geo'.format(gmsh_app, mesh_file_root)]
     if(run_command(gmshcmd)):
         sys.exit()
     check_mtime(mesh_file_root + ".msh")

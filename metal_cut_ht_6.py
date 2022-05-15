@@ -98,6 +98,7 @@ except:
     ver = dolfin.__version__.split('.')
 
 if int(ver[0]) <= 2017 and int(ver[1])<2:
+    UserExpression = Expression
     using_VTK = True
 else:
     using_VTK = False
